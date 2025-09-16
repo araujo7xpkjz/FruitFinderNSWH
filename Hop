@@ -280,6 +280,74 @@ end)
 if plr.Character then
     plr.Character.ChildAdded:Connect(HandleAutoStore)
 end
+local webhook = getgenv().FruitWebhook or ""
+if webhook == "" then
+    warn("Nenhum webhook configurado! Defina getgenv().FruitWebhook antes de executar o script.")
+    return
+end
 
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local plr = Players.LocalPlayer
+local userId = plr.UserId
+
+-- avatar do player
+local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId="..userId.."&width=420&height=420&format=png"
+-- imagem fixa do bot (sua imagem roxa)
+local botIcon = "https://i.imgur.com/Nk1a89M.jpeg"
+-- link do perfil do jogador
+local profileUrl = "https://www.roblox.com/users/"..userId.."/profile"
+
+local comm = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("CommF_")
+
+local function sendWebhook(fruta)
+    local data = {
+        ["username"] = "Fruit Finder NSHW",
+        ["avatar_url"] = botIcon, 
+        ["embeds"] = {{
+            ["title"] = " Fruit Finder Notification 🕊️",
+            ["description"] = "Uma fruta foi armazenada no inventário!",
+            ["color"] = 139,
+            ["thumbnail"] = {["url"] = avatarUrl},
+            ["fields"] = {
+                {["name"] = "🧑 Jogador", ["value"] = "["..plr.Name.."]("..profileUrl..")", ["inline"] = true},
+                {["name"] = "🍇 Fruta", ["value"] = fruta or "Desconhecida", ["inline"] = true},
+                {["name"] = "🌍 PlaceId", ["value"] = tostring(game.PlaceId), ["inline"] = true},
+            },
+            ["footer"] = {["text"] = "Horário: " .. os.date("%d/%m/%Y %H:%M:%S"), ["icon_url"] = botIcon}
+        }}
+    }
+
+    local req = http_request or request or syn and syn.request
+    if req then
+        req({
+            Url = webhook,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode(data)
+        })
+    else
+        warn("Executor não suporta http_request")
+    end
+end
+
+-- hook corrigido
+local old
+old = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+    
+    if self == comm and method == "InvokeServer" and args[1] == "StoreFruit" then
+        local result = old(self, ...) -- pega o retorno do servidor
+        if result == true or result == "Sucess" then
+            sendWebhook(args[2]) -- só envia se armazenou mesmo
+        end
+        return result
+    end
+    
+    return old(self, ...)
+end)
 print("by araujo7xp")
 StartFruitFinder()
